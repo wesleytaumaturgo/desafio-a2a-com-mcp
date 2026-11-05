@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "*Onde termina a profundidade e começa o alcance*",
   "scripts": {
+    "start:mcp": "node servidor-mcp/index.mjs",
+    "start:agente": "node agente/index.mjs",
     "test": "node --test"
   },
   "repository": {
