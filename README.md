@@ -72,7 +72,6 @@ O `traceparent` do cliente A2A é gravado na Task e vai no `_meta` de cada reque
 - **Tasks em memória do processo do agente.** Restart do agente perde as Tasks; fora de escopo.
 - **Adaptador HTTP próprio no servidor MCP.** `createMcpHandler` devolve um handler web-standard; `servidor-mcp/http.mjs` liga `node:http` a ele e escreve o log antes do handler, para registrar também as rejeições de envelope. As reservas vivem no escopo do módulo `servidor-mcp/regras.mjs`, porque a factory roda a cada request.
 - **Regras de sala só no servidor.** Conflito, política e alternativas são do servidor MCP; o agente só traduz protocolo.
-- **O kit de trabalho fica fora do entregável.** Nada dele entra no `main` do fork.
 
 ## Saída do validador
 

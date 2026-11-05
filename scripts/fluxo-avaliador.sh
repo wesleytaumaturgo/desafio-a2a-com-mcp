@@ -22,7 +22,7 @@ INICIO="2026-11-03T14:00:00-03:00"
 FIM="2026-11-03T15:00:00-03:00"
 
 mkdir -p "$pasta"
-rm -f "$pasta"/passo-*.txt
+rm -f "$pasta"/passo-{03,0[5-9],1[0-3]}.txt
 tmp=$(mktemp -d)
 pid_mcp=
 pid_agente=
