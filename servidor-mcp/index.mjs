@@ -1,6 +1,7 @@
 import { McpServer, createMcpHandler, fromJsonSchema } from '@modelcontextprotocol/server';
 import { criarServidorHttp } from './http.mjs';
 import { salas, politica } from './dados.mjs';
+import { consultarDisponibilidade, reservarSala, ERRO_SEM_ALTERNATIVA } from './regras.mjs';
 
 const SEGREDO_HEX = /^[0-9a-f]{64,}$/i;
 
@@ -37,6 +38,68 @@ const saidaListarSalas = fromJsonSchema({
 
 const semArgumentos = fromJsonSchema({ type: 'object', title: 'listar_salasArguments', properties: {} });
 
+const campoTexto = (titulo) => ({ type: 'string', title: titulo });
+const campoOpcional = (titulo) => ({ anyOf: [{ type: 'string' }, { type: 'null' }], default: null, title: titulo });
+
+const entradaIntervalo = {
+  sala: campoTexto('Sala'),
+  inicio: campoTexto('Inicio'),
+  fim: campoTexto('Fim'),
+};
+
+const entradaConsulta = fromJsonSchema({
+  type: 'object',
+  title: 'consultar_disponibilidadeArguments',
+  properties: entradaIntervalo,
+  required: ['sala', 'inicio', 'fim'],
+});
+
+const entradaReserva = fromJsonSchema({
+  type: 'object',
+  title: 'reservar_salaArguments',
+  properties: { ...entradaIntervalo, responsavel: campoTexto('Responsavel') },
+  required: ['sala', 'inicio', 'fim', 'responsavel'],
+});
+
+const saidaDisponibilidade = fromJsonSchema({
+  type: 'object',
+  title: 'Disponibilidade',
+  properties: {
+    sala: campoTexto('Sala'),
+    livre: { type: 'boolean', title: 'Livre' },
+    conflitos: {
+      type: 'array',
+      title: 'Conflitos',
+      items: {
+        type: 'object',
+        title: 'ConflitoOut',
+        properties: { id: campoTexto('Id'), inicio: campoTexto('Inicio'), fim: campoTexto('Fim'), responsavel: campoTexto('Responsavel') },
+        required: ['id', 'inicio', 'fim', 'responsavel'],
+      },
+    },
+  },
+  required: ['sala', 'livre', 'conflitos'],
+});
+
+// Com outputSchema o SDK exige structuredContent fora de isError: os campos aceitam null, como no wire 01.
+const saidaReserva = fromJsonSchema({
+  type: 'object',
+  title: 'ReservaOut',
+  properties: {
+    reserva: campoOpcional('Reserva'),
+    reservado: { type: 'boolean', default: true, title: 'Reservado' },
+    sala: campoOpcional('Sala'),
+    inicio: campoOpcional('Inicio'),
+    fim: campoOpcional('Fim'),
+    responsavel: campoOpcional('Responsavel'),
+    politica: campoOpcional('Politica'),
+    motivo: campoOpcional('Motivo'),
+  },
+});
+
+const comoErro = (texto) => ({ content: [{ type: 'text', text: texto }], isError: true });
+const comoResultado = (estruturado) => ({ content: [{ type: 'text', text: JSON.stringify(estruturado, null, 2) }], structuredContent: estruturado });
+
 function criarServidor() {
   const server = new McpServer({ name: 'central-de-salas', version: '1.0.0' });
 
@@ -46,6 +109,27 @@ function criarServidor() {
     async () => {
       const resultado = { salas };
       return { content: [{ type: 'text', text: JSON.stringify(resultado, null, 2) }], structuredContent: resultado };
+    },
+  );
+
+  server.registerTool(
+    'consultar_disponibilidade',
+    { description: 'Diz se uma sala esta livre no intervalo, e quais reservas conflitam.', inputSchema: entradaConsulta, outputSchema: saidaDisponibilidade },
+    async (args) => {
+      const { erro, disponibilidade } = consultarDisponibilidade(args);
+      return erro ? comoErro(erro) : comoResultado(disponibilidade);
+    },
+  );
+
+  server.registerTool(
+    'reservar_sala',
+    { description: 'Reserva uma sala. Se o intervalo estiver ocupado, pergunta qual alternativa usar.', inputSchema: entradaReserva, outputSchema: saidaReserva },
+    async (args) => {
+      const { erro, reserva, conflitos } = reservarSala(args);
+      if (erro) return comoErro(erro);
+      // Conflito vira input_required na F03; até lá não há alternativa a oferecer.
+      if (conflitos) return comoErro(ERRO_SEM_ALTERNATIVA);
+      return comoResultado(reserva);
     },
   );
 
