@@ -1,0 +1,27 @@
+{
+  "name": "desafio-a2a-com-mcp",
+  "version": "1.0.0",
+  "description": "*Onde termina a profundidade e começa o alcance*",
+  "scripts": {
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wesleytaumaturgo/desafio-a2a-com-mcp.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/wesleytaumaturgo/desafio-a2a-com-mcp/issues"
+  },
+  "homepage": "https://github.com/wesleytaumaturgo/desafio-a2a-com-mcp#readme",
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "private": true
+}
