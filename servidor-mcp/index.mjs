@@ -1,7 +1,8 @@
 import { McpServer, createMcpHandler, fromJsonSchema } from '@modelcontextprotocol/server';
 import { criarServidorHttp } from './http.mjs';
 import { salas, politica } from './dados.mjs';
-import { consultarDisponibilidade, reservarSala, ERRO_SEM_ALTERNATIVA } from './regras.mjs';
+import { consultarDisponibilidade } from './regras.mjs';
+import { criarCodec, tratarReserva } from './mrtr.mjs';
 
 const SEGREDO_HEX = /^[0-9a-f]{64,}$/i;
 
@@ -101,7 +102,7 @@ const comoErro = (texto) => ({ content: [{ type: 'text', text: texto }], isError
 const comoResultado = (estruturado) => ({ content: [{ type: 'text', text: JSON.stringify(estruturado, null, 2) }], structuredContent: estruturado });
 
 function criarServidor() {
-  const server = new McpServer({ name: 'central-de-salas', version: '1.0.0' });
+  const server = new McpServer({ name: 'central-de-salas', version: '1.0.0' }, { requestState: { verify: codec.verify } });
 
   server.registerTool(
     'listar_salas',
@@ -124,12 +125,10 @@ function criarServidor() {
   server.registerTool(
     'reservar_sala',
     { description: 'Reserva uma sala. Se o intervalo estiver ocupado, pergunta qual alternativa usar.', inputSchema: entradaReserva, outputSchema: saidaReserva },
-    async (args) => {
-      const { erro, reserva, conflitos } = reservarSala(args);
+    async (args, ctx) => {
+      const { erro, resultado, pedido } = await tratarReserva(args, ctx, codec);
       if (erro) return comoErro(erro);
-      // Conflito vira input_required na F03; até lá não há alternativa a oferecer.
-      if (conflitos) return comoErro(ERRO_SEM_ALTERNATIVA);
-      return comoResultado(reserva);
+      return pedido ?? comoResultado(resultado);
     },
   );
 
@@ -141,6 +140,7 @@ function criarServidor() {
 }
 
 exigirSegredo();
+const codec = criarCodec(process.env.REQUEST_STATE_SECRET);
 
 const porta = Number(process.env.MCP_PORT ?? 7301);
 const handler = createMcpHandler(criarServidor, { legacy: 'reject', responseMode: 'json' });
